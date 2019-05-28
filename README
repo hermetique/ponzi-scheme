@@ -1,0 +1,10 @@
+Ponzi Scheme
+============
+
+How to build:
+
+  make ponzi
+
+How to use:
+
+  ./ponzi
