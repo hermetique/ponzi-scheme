@@ -109,7 +109,7 @@
 
 (define (or-expander macro-arguments)
   (if (null? macro-arguments)
-    #t
+    #f
     (list
       'if
       (car macro-arguments)
@@ -154,14 +154,39 @@
 (define (cond-expand exprs)
   (if (and (pair? exprs) (not (null? exprs))
            (pair? (car exprs)))
-      `(if ,(caar exprs)
-           (,(make-lambda '() (cdar exprs)))
-           ,(cond-expand (cdr exprs)))
+      (if (eq? (caar exprs) 'else)
+        `(,(make-lambda '() (cdar exprs)))
+        `(if ,(caar exprs)
+             (,(make-lambda '() (cdar exprs)))
+             ,(cond-expand (cdr exprs))))
       (if (null? exprs) '#f)))
 
-(define else #t)
-
 (push-macro! 'cond cond-expand)
+
+(define (case-expand macro-arguments)
+  (define (make-case-conditional var tests)
+    (if (null? tests)
+        #f
+        `(or (eq? ,var (quote ,(car tests)))
+             ,(make-case-conditional var (cdr tests)))))
+  (define (expand-cases var exprs)
+    (if (and (pair? exprs) (not (null? exprs))
+             (pair? (car exprs)))
+        (if (eq? (caar exprs) 'else)
+          `(,(make-lambda '() (cdar exprs)))
+          (let ((condition
+                  (make-case-conditional var (caar exprs))))
+            `(if ,condition
+                 (,(make-lambda '() (cdar exprs)))
+                 ,(expand-cases var (cdr exprs)))))
+        (if (null? exprs) '#f)))
+  (let ((var (gensym))
+        (case-argument (car macro-arguments))
+        (case-body (cdr macro-arguments)))
+    `(let ((,var ,case-argument))
+       ,(expand-cases var case-body))))
+
+(push-macro! 'case case-expand)
 
 (define (set!-helper env symbol value)
   (cond
