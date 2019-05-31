@@ -21,9 +21,13 @@
 #define C(NAME, OP) \
   static scm_object *pscm_cmp_ ## NAME (scm_object *a, UNUSED scm_object **env) { \
     assert(scm_len(a) == 2); \
-    assert(CAR(a)->tag == SCHEME_INTEGER); \
-    assert(CADR(a)->tag == SCHEME_INTEGER); \
-    return SCM_BOOL(CAR(a)->integer_value OP CADR(a)->integer_value); \
+    if (CAR(a)->tag == SCHEME_INTEGER && CADR(a)->tag == SCHEME_INTEGER) { \
+      return SCM_BOOL(CAR(a)->integer_value OP CADR(a)->integer_value); \
+    } else if (CAR(a)->tag == SCHEME_CHARACTER && CADR(a)->tag == SCHEME_CHARACTER) { \
+      return SCM_BOOL(CAR(a)->char_value OP CADR(a)->char_value); \
+    } else { \
+      errx(1, "invalid comparison between types %s and %s", tag_str(CAR(a)->tag), tag_str(CADR(a)->tag)); \
+    } \
   }
 
 P(cons, CONS)
