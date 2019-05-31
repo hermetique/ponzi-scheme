@@ -7,7 +7,7 @@ scm_object *zip_eval(scm_object *, scm_object *, scm_object **);
 scm_object *append(scm_object *, scm_object *);
 scm_object *map_eval(scm_object *, scm_object **);
 
-int write(scm_object *);
+int scm_write(scm_object *);
 int scm_len(scm_object *);
 
 scm_object *add_procedure(const char *, scm_proc);

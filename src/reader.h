@@ -6,6 +6,6 @@
 FILE *scheme_input;
 
 int peek();
-scm_object *read(int *, int *);
+scm_object *scm_read(int *, int *);
 
 #endif /* READER_H_ */

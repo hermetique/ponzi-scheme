@@ -88,7 +88,6 @@ scm_object *read_scm_char(int *linum, int *colnum) {
   return new_char(c);
 }
 
-scm_object *read(int *linum, int *colnum);
 
 scm_object *read_scm_string(int *linum, int *colnum) {
   size_t size = 0, cap = 256;
@@ -136,14 +135,14 @@ scm_object *read_scm_string(int *linum, int *colnum) {
 }
 
 scm_object *read_scm_list(int *linum, int *colnum) {
-  scm_object *car = read(linum, colnum);
+  scm_object *car = scm_read(linum, colnum);
   skip_spaces(linum, colnum);
 
   int ch;
   switch (ch = peek()) {
     case '.':
       getch(linum, colnum);
-      scm_object *cdr = read(linum, colnum);
+      scm_object *cdr = scm_read(linum, colnum);
       skip_spaces(linum, colnum);
       if (getch(linum, colnum) != ')') {
         errx(1, "expected closing ')' at %d:%d", *linum, *colnum);
@@ -198,7 +197,7 @@ scm_object *read_scm_symbol(char c, int *linum, int *colnum) {
   }
 }
 
-scm_object *read(int *linum, int *colnum) {
+scm_object *scm_read(int *linum, int *colnum) {
   int c;
 
   skip_spaces(linum, colnum);
@@ -230,11 +229,11 @@ scm_object *read(int *linum, int *colnum) {
   } else if (is_initial(c) || ((c == '+' || c == '-') && is_delim(peek()))) {
     return read_scm_symbol(c, linum, colnum);
   } else if (c == '\'') {
-    return cons(quote_sym, cons(read(linum, colnum), scm_nil));
+    return cons(quote_sym, cons(scm_read(linum, colnum), scm_nil));
   } else if (c == '`') {
-    return cons(quasiquote_sym, cons(read(linum, colnum), scm_nil));
+    return cons(quasiquote_sym, cons(scm_read(linum, colnum), scm_nil));
   } else if (c == ',') {
-    return cons(unquote_sym, cons(read(linum, colnum), scm_nil));
+    return cons(unquote_sym, cons(scm_read(linum, colnum), scm_nil));
   } else if (c == EOF) {
     return cons(quote_sym, cons(eof_sym, scm_nil));
   } else {

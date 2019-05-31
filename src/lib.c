@@ -1,6 +1,9 @@
 #include "reader.h"
 #include "lib.h"
 
+#include <unistd.h>
+#include <fcntl.h>
+
 #define P(TYPE, DISCRIMINANT) \
   static scm_object *pscm_is_ ## TYPE (scm_object *a, UNUSED scm_object **env) { \
     assert(scm_len(a) == 1); \
@@ -79,13 +82,21 @@ scm_object *pscm_is_bool(scm_object *args, UNUSED scm_object **env) {
 
 scm_object *pscm_car(scm_object *args, UNUSED scm_object **env) {
   assert(scm_len(args) == 1);
-  assert(CAR(args)->tag == SCHEME_CONS);
+  if (CAR(args)->tag != SCHEME_CONS) {
+    scm_write(CAR(args));
+    errx(1, "bad argument to car: object %s", tag_str(CAR(args)->tag));
+  }
+
   return CAAR(args);
 }
 
 scm_object *pscm_cdr(scm_object *args, UNUSED scm_object **env) {
   assert(scm_len(args) == 1);
   assert(CAR(args)->tag == SCHEME_CONS);
+  if (CAR(args)->tag != SCHEME_CONS) {
+    scm_write(CAR(args));
+    errx(1, "bad argument to cdr: object %s", tag_str(CAR(args)->tag));
+  }
 
   return CDAR(args);
 }
@@ -136,7 +147,7 @@ scm_object *pscm_load(scm_object *args, scm_object **env) {
       if (peek() == EOF) {
         break;
       }
-      user_interact(read(&linum, &colnum), env);
+      user_interact(scm_read(&linum, &colnum), env);
     }
     scheme_input = stdin;
     return scm_t;
@@ -155,7 +166,7 @@ scm_object *pscm_write(scm_object *args, UNUSED scm_object **env) {
       case SCHEME_CHARACTER:
         printf("%c", CAR(args)->char_value);
         break;
-      default: write(CAR(args));
+      default: scm_write(CAR(args));
     }
     args = CDR(args);
     n++;
@@ -257,6 +268,76 @@ scm_object *pscm_gensym(scm_object *args, UNUSED scm_object **env) {
   return make_symbol(buf);
 }
 
+scm_object *pscm_read_char(scm_object *args, UNUSED scm_object **env) {
+  assert(scm_len(args) == 0 || scm_len(args) == 1);
+
+  if (scm_len(args) == 1 && CAR(args)->tag == SCHEME_INTEGER) {
+    char buf;
+    switch (read(CAR(args)->integer_value, &buf, 1)) {
+      case 0:
+        return scm_nil;
+      case 1:
+        return new_char(buf);
+      default: return scm_f;
+    }
+  } else {
+    int ch = getc(scheme_input);
+    if (ch == EOF) {
+      return scm_nil;
+    } else {
+      return new_char((char) ch);
+    }
+  }
+}
+
+scm_object *pscm_write_char(scm_object *args, UNUSED scm_object **env) {
+  assert(scm_len(args) == 1 || scm_len(args) == 2);
+  assert(CAR(args)->tag == SCHEME_CHARACTER);
+
+  if (scm_len(args) == 2 && CADR(args)->tag == SCHEME_INTEGER) {
+    char buf = CAR(args)->char_value;
+    if (write(CADR(args)->integer_value, &buf, 1) != 1) {
+      return scm_f;
+    }
+    return scm_t;
+  } else {
+    if (!putc((int) CAR(args)->char_value, stdout)) {
+      return scm_f;
+    }
+    return scm_t;
+  }
+}
+
+scm_object *pscm_open(scm_object *args, UNUSED scm_object **env) {
+  assert(scm_len(args) == 2 && CAR(args)->tag == SCHEME_STRING && CADR(args)->tag == SCHEME_CHARACTER);
+  int fd;
+  switch (CADR(args)->char_value) {
+    case 'r':
+      if ((fd = open(CAR(args)->buffer, O_RDONLY)) == -1) {
+        return scm_f;
+      }
+      return new_integer(fd);
+    case 'w':
+      if ((fd = open(CAR(args)->buffer, O_WRONLY | O_CREAT, 0644)) == -1) {
+        return scm_f;
+      }
+      return new_integer(fd);
+    case '+':
+      if ((fd = open(CAR(args)->buffer, O_RDWR | O_CREAT, 0644)) == -1) {
+        return scm_f;
+      }
+      return new_integer(fd);
+    default:
+      return scm_f;
+  }
+}
+
+scm_object *pscm_close(scm_object *args, UNUSED scm_object **env) {
+  assert(scm_len(args) == 1);
+  close(CAR(args)->integer_value);
+  return scm_t;
+}
+
 void scm_init() {
   scm_t = new(SCHEME_TRUE);
   scm_f = new(SCHEME_FALSE);
@@ -307,6 +388,11 @@ void scm_init() {
   add_procedure("string-len", pscm_string_len);
   add_procedure("string-set!", pscm_string_set);
 
+  add_procedure("open-file", pscm_open);
+  add_procedure("close-file", pscm_close);
+  add_procedure("read-char", pscm_read_char);
+  add_procedure("write-char", pscm_write_char);
+
   add_procedure("gensym", pscm_gensym);
   add_procedure("expand", pscm_id);
   add_procedure("load", pscm_load);
@@ -350,7 +436,7 @@ scm_object *map_eval(scm_object *args, scm_object **env) {
   return head;
 }
 
-int write(scm_object *obj) {
+int scm_write(scm_object *obj) {
   switch (obj->tag) {
     case SCHEME_INTEGER:
       printf("%d", obj->integer_value);
@@ -405,7 +491,7 @@ int write(scm_object *obj) {
       scm_object *car = CAR(obj), *cdr = CDR(obj);
 
 print_pair:
-      write(car);
+      scm_write(car);
       if (cdr->tag == SCHEME_CONS) {
         putchar(' ');
         obj = cdr;
@@ -415,7 +501,7 @@ print_pair:
       } else if (cdr->tag == SCHEME_NIL) {
       } else {
         printf(" . ");
-        write(cdr);
+        scm_write(cdr);
       }
       goto end;
 
@@ -433,7 +519,7 @@ end:
       break;
     case SCHEME_KNOT:
       printf("#<knot: ");
-      write(obj->fwd);
+      scm_write(obj->fwd);
       putchar('>');
       break;
   }

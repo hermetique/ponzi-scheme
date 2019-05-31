@@ -175,7 +175,7 @@ int main(int argc, char *argv[]) {
     if (peek() == EOF) {
       exit(0);
     }
-    write(user_interact(read(&linum, &colnum), &environment));
+    scm_write(user_interact(scm_read(&linum, &colnum), &environment));
     putchar('\n');
   }
   exit(0);

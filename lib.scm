@@ -50,9 +50,11 @@
           (member x (cdr xs)))))
 
 (define (append xs ys)
-  (if (null? xs)
-      ys
-      (cons (car xs) (append (cdr xs) ys))))
+  (if (pair? xs)
+    (if (null? xs)
+        ys
+        (cons (car xs) (append (cdr xs) ys)))
+    (cons xs ys)))
 
 (define (expand/helper shadow s)
   (if (if (pair? s)
@@ -216,3 +218,17 @@
 
 (define (push! list value)
   (set-cdr! list (cons value (cdr list))))
+
+(define write-string
+  (lambda args
+    (define (write-chars port len i str)
+      (if (>= i len)
+        #t
+        (and
+          (write-char (string-ref str i) port)
+          (write-chars port len (+ 1 i) str))))
+    (if (and (pair? args)
+             (pair? (cdr args)))
+      (let ((string (car args)))
+        (write-chars (cadr args) (string-len string) 0 string))
+      (write (car args)))))
