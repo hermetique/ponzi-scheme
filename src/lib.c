@@ -246,6 +246,17 @@ scm_object *pscm_eval(scm_object *args, UNUSED scm_object **env) {
   return eval(CAR(args), &CADR(args));
 }
 
+scm_object *pscm_gensym(scm_object *args, UNUSED scm_object **env) {
+  assert(scm_len(args) == 0);
+  static int gensym_counter = 0;
+
+  char buf[128];
+  if (!sprintf(buf, "#%d", gensym_counter++))
+    err(1, "failed to print symbol %d", gensym_counter);
+
+  return make_symbol(buf);
+}
+
 void scm_init() {
   scm_t = new(SCHEME_TRUE);
   scm_f = new(SCHEME_FALSE);
@@ -296,6 +307,7 @@ void scm_init() {
   add_procedure("string-len", pscm_string_len);
   add_procedure("string-set!", pscm_string_set);
 
+  add_procedure("gensym", pscm_gensym);
   add_procedure("expand", pscm_id);
   add_procedure("load", pscm_load);
   add_procedure("write", pscm_write);
@@ -323,17 +335,19 @@ scm_object *append(scm_object *a, scm_object *b) {
   return result;
 }
 
+// implementation due to nortti (@JuEeHa) and vi
+// <vi@forbidden.technology>
 scm_object *map_eval(scm_object *args, scm_object **env) {
-  scm_object *intr = scm_nil, *result = scm_nil;
+  scm_object *head = scm_nil, **tail_ptr = &head;
+
   while (args->tag != SCHEME_NIL) {
-    intr = cons(eval(CAR(args), env), intr);
+    scm_object *current = cons(eval(CAR(args), env), scm_nil);
+    *tail_ptr = current;
+    tail_ptr = &CDR(current);
     args = CDR(args);
   }
-  while (intr->tag != SCHEME_NIL) {
-    result = cons(CAR(intr), result);
-    intr = CDR(intr);
-  }
-  return result;
+
+  return head;
 }
 
 int write(scm_object *obj) {
