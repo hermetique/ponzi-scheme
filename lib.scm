@@ -166,9 +166,11 @@
 (define (case-expand macro-arguments)
   (define (make-case-conditional var tests)
     (if (null? tests)
-        #f
-        `(or (eq? ,var (quote ,(car tests)))
-             ,(make-case-conditional var (cdr tests)))))
+      #f
+      (if (pair? tests)
+          `(or (eq? ,var (quote ,(car tests)))
+             ,(make-case-conditional var (cdr tests)))
+          `(eq? ,var (quote ,tests)))))
   (define (expand-cases var exprs)
     (if (and (pair? exprs) (not (null? exprs))
              (pair? (car exprs)))
